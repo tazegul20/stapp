@@ -1,5 +1,2 @@
 # stapp
-# stapp
-# stapp
-# stapp
-# stapp
+Streamlit based personal CV assistant
