@@ -7,7 +7,6 @@ import pandas as pd
 import os
 from openai import AzureOpenAI
 from sentence_transformers import SentenceTransformer,util
-import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity
 from dotenv.main import load_dotenv
 
