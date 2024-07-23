@@ -18,7 +18,7 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def istem_atma(user_q):
-    df=pd.read_excel('sorular.xlsx')
+    df=pd.read_excel('sorular1.xlsx')
 
  
     model = SentenceTransformer('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
