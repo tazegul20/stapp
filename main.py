@@ -43,11 +43,11 @@ def istem_atma(user_q):
     
     answers=ans.to_list()
     
-    message_text = [{"role":"system","content":f"You are an AI assistant that can only answer based on following list: {answers[0]}. If you can't find the answer in the list just say 'Üzgünüm bu soruya cevap veremiyorum'."},
+    message_text = [{"role":"system","content":f"You are an AI assistant that can only answer based on the following list: {answers[0]},{answers[1]}. Read the list  and execute the correct answer as an output. If you can't find the answer in the list just say 'Üzgünüm bu soruya cevap veremiyorum'."},
                     {"role":"user","content":f"{user_q}"}]
     
     completion = client.chat.completions.create(
-      model="gpt-3.5-turbo",# model = "deployment_name"
+      model="gpt-3.5-turbo-16k",# model = "deployment_name"
       messages = message_text,
       temperature=0.7,
       max_tokens=800,
