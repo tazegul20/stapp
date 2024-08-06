@@ -1,76 +1,100 @@
-import os 
-from openai import OpenAI
 import streamlit as st
-import pandas as pd
-import math
-import pandas as pd
-import os
-from openai import AzureOpenAI
-from sentence_transformers import SentenceTransformer,util
-from sklearn.metrics.pairwise import cosine_similarity
-from dotenv.main import load_dotenv
+from dotenv import load_dotenv
+from pypdf import PdfReader
+from langchain.text_splitter import CharacterTextSplitter
+#from langchain.embeddings import OpenAIEmbeddings,HuggingFaceInferenceAPIEmbeddings
+from langchain_community.embeddings import OpenAIEmbeddings,HuggingFaceInstructEmbeddings 
+from langchain_community.vectorstores import FAISS
+#from langchain.vectorstores import FAISS
+import io
+from langchain_openai.chat_models.base import ChatOpenAI
+from transformers import AutoModel,AutoTokenizer
+from langchain.memory import ConversationBufferMemory
+from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
+from htmlTemplates import css,bot_template,user_template
 
 
+def get_pdf_text(pdf_docs):
+    text=""
+    for pdf in pdf_docs:
+        pdf_file = io.BytesIO(pdf.read())
+        reader=PdfReader(pdf_file)
+        for page in reader.pages:
+            text+=page.extract_text()
+    return text
+
+def get_text_chunks(text):
+    text_splitter = CharacterTextSplitter(separator="\n",
+                                          chunk_size=1000,
+                                          chunk_overlap=200,
+                                          length_function=len)
+    chunks= text_splitter.split_text(text)
+    return chunks
 
 
+def get_vectorstore(text_chunks):
+    embeddings = OpenAIEmbeddings()
+    #embeddings = HuggingFaceInstructEmbeddings(model_name='hkunlp/instructor-xl')    
+    vectorstore= FAISS.from_texts(texts=text_chunks,embedding=embeddings)
+    return vectorstore
 
-load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-def istem_atma(user_q):
-    df=pd.read_excel('sorular1.xlsx')
-
- 
-    model = SentenceTransformer('emrecan/bert-base-turkish-cased-mean-nli-stsb-tr')
-    soru_list = df['Soru'].to_list()
-    cevap_list = df['Cevap'].to_list()
-    user_q_embedded=model.encode(user_q, convert_to_tensor=False)
-    soru_embedded = model.encode(soru_list, convert_to_tensor=False)
-    cevap_embedded = model.encode(cevap_list, convert_to_tensor=False)
-
-    
-    cosine_similarities=util.pytorch_cos_sim(user_q_embedded,soru_embedded)
-    top_10=cosine_similarities.argsort(axis=-1)[:,-10:] # get the top 10 similar items for each
-    
-    for top_question in top_10:
-        top_question=df['Soru'].iloc[top_question][-10:][::-1]
-        
-    
-    ans=None
-    for ans in top_10:
-        ans=df['Cevap'].iloc[ans][-10:][::-1]
-        
-    
-    answers=ans.to_list()
-    
-    message_text = [{"role":"system","content":f"You are an AI assistant that can only answer based on the following list: {answers[0]},{answers[1]}. Read the list and give the first one as an output."},
-                    {"role":"user","content":f"{user_q}"}]
-    
-    completion = client.chat.completions.create(
-      model="gpt-3.5-turbo-16k",# model = "deployment_name"
-      messages = message_text,
-      temperature=0.7,
-      max_tokens=800,
-      top_p=0.95,
-      frequency_penalty=0,
-      presence_penalty=0,
-      stop=None,
+def get_conversation_chain(vectore_store):
+    llm=ChatOpenAI()
+    memory= ConversationBufferMemory(memory_key='chat_history',return_messages=True)
+    converstion_chain= ConversationalRetrievalChain.from_llm(
+        llm=llm,
+        retriever=vectore_store.as_retriever(),
+        memory=memory,
     )
+    return converstion_chain
     
-    a=completion.dict()
-    b=a['choices'][0]['message']['content']
-    return b
+def handle_userinput(user_question):
+    response = st.session_state.conversation({'question':user_question})
+    st.session_state.chat_history = response['chat_history']
+
+    for i ,message in enumerate(st.session_state.chat_history):
+        if i % 2 == 0:
+            st.write(user_template.replace("{{MSG}}", message.content),unsafe_allow_html=True)
+        else:
+            st.write(bot_template.replace("{{MSG}}", message.content),unsafe_allow_html=True)
+            
+        
 
 
 
-txt = st.text_input('Lutfen istemi giriniz')
+def main():
+    load_dotenv()
+    st.set_page_config(page_title="Chat with me")
 
+    st.write(css,unsafe_allow_html=True)
+    if "conversation" not in st.session_state:
+        st.session_state.conversation= None
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = None
 
-button = st.button('Istemi gonderin')
-
-if button:
-
-    cevap=istem_atma(txt)
     
-    
-    st.write(cevap)
+    st.header("Chat with my personal assistant :)")
+    user_question=st.text_input("Ask something you wonder about me !")
+    if user_question:
+        handle_userinput(user_question)
+     
+
+    with st.sidebar:
+        st.subheader("Document in the CV")
+        pdf_docs=st.file_uploader("Upload the pdf and click on 'Process'",type="pdf",accept_multiple_files=True)
+        if st.button("Process"):
+            with st.spinner("Processing"):
+                raw_text= get_pdf_text(pdf_docs)
+                
+                text_chunks = get_text_chunks(raw_text)    
+                
+                vectore_store= get_vectorstore(text_chunks)
+
+                st.session_state.conversation=get_conversation_chain(vectore_store)
+                
+
+
+        
+if __name__ == '__main__':
+    main()
