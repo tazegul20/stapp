@@ -1,8 +1,16 @@
-numpy==1.26.4
-openai==1.36.0
-pandas==2.2.2
+pypdf==4.3.1
 python-dotenv==1.0.1
-scikit_learn==1.2.2
-sentence_transformers==2.5.1
 streamlit==1.36.0
-openpyxl
+transformers==4.38.2
+tiktoken==0.7.0
+langchain==0.2.12
+PyPDF2==3.0.1
+openai==1.32.0
+faiss-cpu==1.7.4
+altair==4
+# uncomment to use instructor embeddings
+InstructorEmbedding==1.0.1
+sentence-transformers==2.2.2
+langchain_community==0.2.11
+langchain_openai==0.1.20
+
